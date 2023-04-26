@@ -84,7 +84,7 @@ private fun post(filename: String, content: String) {
     postFileConnection.doOutput = true
     postFileConnection.outputStream.write(postFileBytes)
     if (postFileConnection.responseCode in 200..299) {
-        println("POST request succeeded. File created.")
+        println("POST request succeeded. File appended.")
     } else {
         println("POST request failed. Response code: ${postFileConnection.responseCode}")
     }
@@ -122,64 +122,66 @@ private fun copy(fileName: String) {
     // COPY request
     // GET from 1 file
     val fileUrl = baseUrl + fileName
-    var content = ""
     val getFileConnection = URL(fileUrl).openConnection() as HttpURLConnection
     getFileConnection.requestMethod = "GET"
     if (getFileConnection.responseCode in 200..299) {
-        content = getFileConnection.inputStream.bufferedReader().readText()
+        val content = getFileConnection.inputStream.bufferedReader().readText()
+        //Creating copy of file
+        val copyFileUrl = baseUrl + getCopyName(fileName)
+        val copyFileBytes = content.toByteArray()
+        val copyFileConnection = URL(copyFileUrl).openConnection() as HttpURLConnection
+        copyFileConnection.requestMethod = "PUT"
+        copyFileConnection.setRequestProperty("Content-Type", "application/octet-stream")
+        copyFileConnection.doOutput = true
+        copyFileConnection.outputStream.write(copyFileBytes)
+        if (copyFileConnection.responseCode in 200..299) {
+            println("COPY request succeeded. File copied.")
+        } else {
+            println("COPY request failed. Response code: ${copyFileConnection.responseCode}")
+        }
     } else {
         println("COPY request failed. Response code: ${getFileConnection.responseCode}")
     }
+}
 
-    //Creating copy of file
-    val postFileUrl = "$baseUrl$fileName-copy"
-    val postFileBytes = content.toByteArray()
-    val postFileConnection = URL(postFileUrl).openConnection() as HttpURLConnection
-    postFileConnection.requestMethod = "POST"
-    postFileConnection.setRequestProperty("Content-Type", "application/octet-stream")
-    postFileConnection.doOutput = true
-    postFileConnection.outputStream.write(postFileBytes)
-    if (postFileConnection.responseCode in 200..299) {
-        println("COPY request succeeded. File copied.")
-    } else {
-        println("COPY request failed. Response code: ${postFileConnection.responseCode}")
-    }
+private fun getCopyName(name: String): String {
+    val parts = name.split(".")
+    return if (parts.size == 1) "$name-copy"
+    else parts[0] + "-copy." + parts[1]
 }
 
 private fun move(filename: String, newName: String) {
 
     //GET info from old file
     val getFileUrl = baseUrl + filename
-    var content = ""
     val getFileConnection = URL(getFileUrl).openConnection() as HttpURLConnection
     getFileConnection.requestMethod = "GET"
     if (getFileConnection.responseCode in 200..299) {
-        content = getFileConnection.inputStream.bufferedReader().readText()
+        val content = getFileConnection.inputStream.bufferedReader().readText()
+
+        // DELETE old file
+        val fileUrl = baseUrl + filename
+        val deleteFileConnection = URL(fileUrl).openConnection() as HttpURLConnection
+        deleteFileConnection.requestMethod = "DELETE"
+        if (deleteFileConnection.responseCode in 200..299) {
+            //creating new file
+            val newFileUrl = baseUrl + newName
+            val newFileBytes = content.toByteArray()
+            val newFileConnection = URL(newFileUrl).openConnection() as HttpURLConnection
+            newFileConnection.requestMethod = "PUT"
+            newFileConnection.setRequestProperty("Content-Type", "application/octet-stream")
+            newFileConnection.doOutput = true
+            newFileConnection.outputStream.write(newFileBytes)
+            if (newFileConnection.responseCode in 200..299) {
+                println("MOVE request succeeded. File moved.")
+            } else {
+                println("MOVE request failed. Response code: ${newFileConnection.responseCode}")
+            }
+        } else {
+            println("MOVE request failed. Response code: ${deleteFileConnection.responseCode}")
+        }
     } else {
         println("MOVE request failed. Response code: ${getFileConnection.responseCode}")
-    }
-
-    // DELETE old file
-    val fileUrl = baseUrl + filename
-    val deleteFileConnection = URL(fileUrl).openConnection() as HttpURLConnection
-    deleteFileConnection.requestMethod = "DELETE"
-    if (deleteFileConnection.responseCode in 200..299) {
-    } else {
-        println("MOVE request failed. Response code: ${deleteFileConnection.responseCode}")
-    }
-
-    //POST new file
-    val postFileUrl = baseUrl + newName
-    val postFileBytes = content.toByteArray()
-    val postFileConnection = URL(postFileUrl).openConnection() as HttpURLConnection
-    postFileConnection.requestMethod = "POST"
-    postFileConnection.setRequestProperty("Content-Type", "application/octet-stream")
-    postFileConnection.doOutput = true
-    postFileConnection.outputStream.write(postFileBytes)
-    if (postFileConnection.responseCode in 200..299) {
-        println("MOVE request succeeded. File created.")
-    } else {
-        println("MOVE request failed. Response code: ${postFileConnection.responseCode}")
     }
 }
 
